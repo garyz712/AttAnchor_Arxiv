@@ -391,6 +391,10 @@ In our experiments, number of generated image tokens is fixed at 576, we believe
 \paragraph{Synergizing with Token Reduction} Our current approach uses some redundant tokens as AttAnchors. Thus, another promising future direction is to combine AttAnchor  with token reduction, leveraging its enhanced token locality and alignment to prune low-cosine-similarity image tokens, potentially improving computational efficiency and memory usage in resource-constrained settings without sacrificing performance.
 
 
+\section{Code Availability}
+
+The implementation of AttAnchor and all experimental code will be made publicly available at \url{https://github.com/garyz712/attanchor.git} upon publication. This includes the complete training scripts, evaluation code, and preprocessed datasets used in our experiments to ensure reproducibility.
+
 \section{Acknowledgments}
 
 We thank Tambe's Lab at Stanford University for hosting the author as a visiting student researcher and providing technical guidance and GPU compute resources that made this research possible. Their support was instrumental in conducting the extensive experiments across multiple model scales and datasets.
