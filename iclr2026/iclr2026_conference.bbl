@@ -1,0 +1,255 @@
+\begin{thebibliography}{49}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Alayrac et~al.(2022)Alayrac, Donahue, Luc, Miech, et~al.]{alayrac2022flamingo}
+Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, et~al.
+\newblock Flamingo: A visual language model for few-shot learning.
+\newblock \emph{Advances in Neural Information Processing Systems}, 35:\penalty0 23716--23736, 2022.
+
+\bibitem[Banerjee \& Lavie(2005)Banerjee and Lavie]{banerjee2005meteor}
+Satanjeev Banerjee and Alon Lavie.
+\newblock Meteor: An automatic metric for mt evaluation with improved correlation with human judgments.
+\newblock In \emph{Proceedings of the acl workshop on intrinsic and extrinsic evaluation measures for machine translation and/or summarization}, pp.\  65--72, 2005.
+
+\bibitem[Bica et~al.(2024)Bica, Ili{\'c}, Bauer, Erdogan, Bo{\v{s}}njak, Kaplanis, Gritsenko, Minderer, Blundell, Pascanu, et~al.]{bica2024improving}
+Ioana Bica, Anastasija Ili{\'c}, Matthias Bauer, Goker Erdogan, Matko Bo{\v{s}}njak, Christos Kaplanis, Alexey~A Gritsenko, Matthias Minderer, Charles Blundell, Razvan Pascanu, et~al.
+\newblock Improving fine-grained understanding in image-text pre-training.
+\newblock \emph{arXiv preprint arXiv:2401.09865}, 2024.
+
+\bibitem[Cao et~al.(2023)Cao, Paranjape, and Hajishirzi]{cao2023pumer}
+Qingqing Cao, Bhargavi Paranjape, and Hannaneh Hajishirzi.
+\newblock Pumer: Pruning and merging tokens for efficient vision language models.
+\newblock \emph{arXiv preprint arXiv:2305.17530}, 2023.
+
+\bibitem[Chen et~al.(2023{\natexlab{a}})Chen, Han, Zhao, Zhang, Shi, Xu, and Xu]{chen2023x}
+Feilong Chen, Minglun Han, Haozhi Zhao, Qingyang Zhang, Jing Shi, Shuang Xu, and Bo~Xu.
+\newblock X-llm: Bootstrapping advanced large language models by treating multi-modalities as foreign languages.
+\newblock \emph{arXiv preprint arXiv:2305.04160}, 2023{\natexlab{a}}.
+
+\bibitem[Chen et~al.(2023{\natexlab{b}})Chen, Wong, Chen, and Tian]{chen2023extending}
+Shouyuan Chen, Sherman Wong, Liangjian Chen, and Yuandong Tian.
+\newblock Extending context window of large language models via positional interpolation.
+\newblock \emph{arXiv preprint arXiv:2306.15595}, 2023{\natexlab{b}}.
+
+\bibitem[Dai et~al.(2023)Dai, Li, Li, Tiong, Zhao, Wang, Li, Fung, and Hoi]{dai2023instructblip}
+Wenliang Dai, Junnan Li, Dongxu Li, Anthony Tiong, Junqi Zhao, Weisheng Wang, Boyang Li, Pascale~N Fung, and Steven Hoi.
+\newblock Instructblip: Towards general-purpose vision-language models with instruction tuning.
+\newblock \emph{Advances in neural information processing systems}, 36:\penalty0 49250--49267, 2023.
+
+\bibitem[Dosovitskiy et~al.(2020)Dosovitskiy, Beyer, Kolesnikov, Weissenborn, Zhai, Unterthiner, Dehghani, Minderer, Heigold, Gelly, et~al.]{dosovitskiy2020image}
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et~al.
+\newblock An image is worth 16x16 words: Transformers for image recognition at scale.
+\newblock \emph{arXiv preprint arXiv:2010.11929}, 2020.
+
+\bibitem[Fan et~al.(2024)Fan, Huang, Chen, and He]{fan2024semantic}
+Qihang Fan, Huaibo Huang, Mingrui Chen, and Ran He.
+\newblock Semantic equitable clustering: A simple and effective strategy for clustering vision tokens.
+\newblock \emph{arXiv preprint arXiv:2405.13337}, 2024.
+
+\bibitem[Fu et~al.(2023)Fu, Chen, Shen, Qin, Zhang, Lin, Yang, Zheng, Li, Sun, et~al.]{fu2023mme}
+Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei Qin, Mengdan Zhang, Xu~Lin, Jinrui Yang, Xiawu Zheng, Ke~Li, Xing Sun, et~al.
+\newblock Mme: A comprehensive evaluation benchmark for multimodal large language models.
+\newblock \emph{arXiv preprint arXiv:2306.13394}, 2023.
+
+\bibitem[Goyal et~al.(2023)Goyal, Ji, Rawat, Menon, Kumar, and Nagarajan]{goyal2023think}
+Sachin Goyal, Ziwei Ji, Ankit~Singh Rawat, Aditya~Krishna Menon, Sanjiv Kumar, and Vaishnavh Nagarajan.
+\newblock Think before you speak: Training language models with pause tokens.
+\newblock \emph{arXiv preprint arXiv:2310.02226}, 2023.
+
+\bibitem[Goyal et~al.(2017)Goyal, Khot, Summers-Stay, Batra, and Parikh]{goyal2017making}
+Yash Goyal, Tejas Khot, Douglas Summers-Stay, Dhruv Batra, and Devi Parikh.
+\newblock Making the v in vqa matter: Elevating the role of image understanding in visual question answering.
+\newblock In \emph{Proceedings of the IEEE conference on computer vision and pattern recognition}, pp.\  6904--6913, 2017.
+
+\bibitem[Graves(2012)]{graves2012long}
+Alex Graves.
+\newblock Long short-term memory.
+\newblock \emph{Supervised sequence labelling with recurrent neural networks}, pp.\  37--45, 2012.
+
+\bibitem[Guan et~al.(2024)Guan, Liu, Wu, Xian, Li, Liu, Wang, Chen, Huang, Yacoob, et~al.]{guan2024hallusionbench}
+Tianrui Guan, Fuxiao Liu, Xiyang Wu, Ruiqi Xian, Zongxia Li, Xiaoyu Liu, Xijun Wang, Lichang Chen, Furong Huang, Yaser Yacoob, et~al.
+\newblock Hallusionbench: an advanced diagnostic suite for entangled language hallucination and visual illusion in large vision-language models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.\  14375--14385, 2024.
+
+\bibitem[Gurari et~al.(2018)Gurari, Li, Stangl, Guo, Lin, Grauman, Luo, and Bigham]{gurari2018vizwiz}
+Danna Gurari, Qing Li, Abigale~J Stangl, Anhong Guo, Chi Lin, Kristen Grauman, Jiebo Luo, and Jeffrey~P Bigham.
+\newblock Vizwiz grand challenge: Answering visual questions from blind people.
+\newblock In \emph{Proceedings of the IEEE conference on computer vision and pattern recognition}, pp.\  3608--3617, 2018.
+
+\bibitem[Han et~al.(2024)Han, Gong, Zhang, Wang, Zhang, Lin, Qiao, Gao, and Yue]{han2024onellm}
+Jiaming Han, Kaixiong Gong, Yiyuan Zhang, Jiaqi Wang, Kaipeng Zhang, Dahua Lin, Yu~Qiao, Peng Gao, and Xiangyu Yue.
+\newblock Onellm: One framework to align all modalities with language.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.\  26584--26595, 2024.
+
+\bibitem[Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, Chen, et~al.]{hu2022lora}
+Edward~J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu~Wang, Weizhu Chen, et~al.
+\newblock Lora: Low-rank adaptation of large language models.
+\newblock \emph{ICLR}, 1\penalty0 (2):\penalty0 3, 2022.
+
+\bibitem[Huang et~al.(2024)Huang, Huang, Shi, Chen, Zheng, Sun, Jiang, Li, and Cheng]{huang2024efficient}
+Minbin Huang, Runhui Huang, Han Shi, Yimeng Chen, Chuanyang Zheng, Xiangguo Sun, Xin Jiang, Zhenguo Li, and Hong Cheng.
+\newblock Efficient multi-modal large language models via visual token grouping.
+\newblock \emph{arXiv preprint arXiv:2411.17773}, 2024.
+
+\bibitem[Hudson \& Manning(2019)Hudson and Manning]{hudson2019gqa}
+Drew~A Hudson and Christopher~D Manning.
+\newblock Gqa: A new dataset for real-world visual reasoning and compositional question answering.
+\newblock In \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition}, pp.\  6700--6709, 2019.
+
+\bibitem[HuggingFaceH4(2024)]{huggingfaceh4_llava_instruct_mix_vsft}
+HuggingFaceH4.
+\newblock {HuggingFaceH4/llava-instruct-mix-vsft}.
+\newblock \url{https://huggingface.co/datasets/HuggingFaceH4/llava-instruct-mix-vsft}, 2024.
+
+\bibitem[Jang et~al.(2017)Jang, Gu, and Poole]{jang2016categorical}
+Eric Jang, Shixiang Gu, and Ben Poole.
+\newblock Categorical reparameterization with gumbel-softmax.
+\newblock In \emph{International Conference on Learning Representations (ICLR)}, 2017.
+
+\bibitem[Li et~al.(2023{\natexlab{a}})Li, Li, Xiong, and Hoi]{li2023blip2}
+Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi.
+\newblock Blip-2: Bootstrapping language-image pre-training with frozen image encoders and large language models.
+\newblock \emph{arXiv preprint arXiv:2301.12597}, 2023{\natexlab{a}}.
+
+\bibitem[Li et~al.(2023{\natexlab{b}})Li, Du, Zhou, Wang, Zhao, and Wen]{li2023evaluating}
+Yifan Li, Yifan Du, Kun Zhou, Jinpeng Wang, Wayne~Xin Zhao, and Ji-Rong Wen.
+\newblock Evaluating object hallucination in large vision-language models.
+\newblock \emph{arXiv preprint arXiv:2305.10355}, 2023{\natexlab{b}}.
+
+\bibitem[Lin(2004)]{lin2004rouge}
+Chin-Yew Lin.
+\newblock Rouge: A package for automatic evaluation of summaries.
+\newblock In \emph{Text summarization branches out}, pp.\  74--81, 2004.
+
+\bibitem[Liu et~al.(2023)Liu, Li, Wu, Lee, et~al.]{liu2023llava}
+Haotian Liu, Chunyuan Li, Qingyang Wu, Yong~Jae Lee, et~al.
+\newblock Llava: Large language-and-vision assistant.
+\newblock \emph{arXiv preprint arXiv:2304.08485}, 2023.
+
+\bibitem[Liu et~al.(2024{\natexlab{a}})Liu, Li, Li, and Lee]{liu2024llavamore}
+Haotian Liu, Chunyuan Li, Yuheng Li, and Yong~Jae Lee.
+\newblock Llava-more: Scaling large multimodal models with mixture of reasoning experts.
+\newblock \emph{arXiv preprint arXiv:2406.20000}, 2024{\natexlab{a}}.
+
+\bibitem[Liu et~al.(2024{\natexlab{b}})Liu, Li, Li, Li, Zhang, Shen, and Lee]{liu2024llavanext}
+Haotian Liu, Chunyuan Li, Yuheng Li, Bo~Li, Yuanhan Zhang, Sheng Shen, and Yong~Jae Lee.
+\newblock Llavanext: Improved reasoning, ocr, and world knowledge.
+\newblock 2024{\natexlab{b}}.
+
+\bibitem[Lu et~al.(2022)Lu, Mishra, Xia, Qiu, Chang, Zhu, Tafjord, Clark, and Kalyan]{lu2022learn}
+Pan Lu, Swaroop Mishra, Tanglin Xia, Liang Qiu, Kai-Wei Chang, Song-Chun Zhu, Oyvind Tafjord, Peter Clark, and Ashwin Kalyan.
+\newblock Learn to explain: Multimodal reasoning via thought chains for science question answering.
+\newblock \emph{Advances in Neural Information Processing Systems}, 35:\penalty0 2507--2521, 2022.
+
+\bibitem[Mena et~al.(2018)Mena, Belanger, et~al.]{mena2018learning}
+Gonzalo Mena, David Belanger, et~al.
+\newblock Learning latent permutations with gumbel-sinkhorn networks.
+\newblock In \emph{International Conference on Learning Representations (ICLR)}, 2018.
+
+\bibitem[Mukhoti et~al.(2023)Mukhoti, Lin, Poursaeed, Wang, Shah, Torr, and Lim]{mukhoti2023open}
+Jishnu Mukhoti, Tsung-Yu Lin, Omid Poursaeed, Rui Wang, Ashish Shah, Philip~HS Torr, and Ser-Nam Lim.
+\newblock Open vocabulary semantic segmentation with patch aligned contrastive learning.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.\  19413--19423, 2023.
+
+\bibitem[Papineni et~al.(2002)Papineni, Roukos, Ward, and Zhu]{papineni2002bleu}
+Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu.
+\newblock Bleu: a method for automatic evaluation of machine translation.
+\newblock In \emph{Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics (ACL)}, pp.\  311--318. Association for Computational Linguistics, 2002.
+\newblock \doi{10.3115/1073083.1073135}.
+
+\bibitem[Press et~al.(2021)Press, Smith, and Lewis]{press2021alibi}
+Ofir Press, Noah~A Smith, and Mike Lewis.
+\newblock Train short, test long: Attention with linear biases enables input length extrapolation.
+\newblock \emph{arXiv preprint arXiv:2108.12409}, 2021.
+
+\bibitem[Radford et~al.(2021)Radford, Kim, Hallacy, et~al.]{radford2021learning}
+Alec Radford, Jong~Wook Kim, Chris Hallacy, et~al.
+\newblock Learning transferable visual models from natural language supervision.
+\newblock \emph{International Conference on Machine Learning (ICML)}, pp.\  8748--8763, 2021.
+
+\bibitem[Rumelhart et~al.(1986)Rumelhart, Hinton, and Williams]{rumelhart1986learning}
+David~E Rumelhart, Geoffrey~E Hinton, and Ronald~J Williams.
+\newblock Learning representations by back-propagating errors.
+\newblock \emph{nature}, 323\penalty0 (6088):\penalty0 533--536, 1986.
+
+\bibitem[Su et~al.(2024)Su, Ahmed, Lu, Pan, Bo, and Liu]{su2024roformer}
+Jianlin Su, Murtadha Ahmed, Yu~Lu, Shengfeng Pan, Wen Bo, and Yunfeng Liu.
+\newblock Roformer: Enhanced transformer with rotary position embedding.
+\newblock \emph{Neurocomputing}, 568:\penalty0 127063, 2024.
+
+\bibitem[Sun et~al.(2022)Sun, Dong, Patra, Ma, Huang, Benhaim, Chaudhary, Song, and Wei]{sun2022length}
+Yutao Sun, Li~Dong, Barun Patra, Shuming Ma, Shaohan Huang, Alon Benhaim, Vishrav Chaudhary, Xia Song, and Furu Wei.
+\newblock A length-extrapolatable transformer.
+\newblock \emph{arXiv preprint arXiv:2212.10554}, 2022.
+
+\bibitem[Sutskever et~al.(2014)Sutskever, Vinyals, and Le]{sutskever2014sequence}
+Ilya Sutskever, Oriol Vinyals, and Quoc~V Le.
+\newblock Sequence to sequence learning with neural networks.
+\newblock \emph{Advances in neural information processing systems}, 27, 2014.
+
+\bibitem[UnslothAI(2024)]{unsloth_llava_instruct_mix_vsft_mini}
+UnslothAI.
+\newblock Llava-instruct-mix-vsft-mini dataset.
+\newblock \url{https://huggingface.co/datasets/unsloth/llava-instruct-mix-vsft-mini}, 2024.
+\newblock Accessed: 2025-06-02.
+
+\bibitem[Vaswani et~al.(2017)Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, and Polosukhin]{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan~N Gomez, {\L}ukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock \emph{Advances in neural information processing systems}, 30, 2017.
+
+\bibitem[Vedantam et~al.(2015)Vedantam, Lawrence~Zitnick, and Parikh]{vedantam2015cider}
+Ramakrishna Vedantam, C~Lawrence~Zitnick, and Devi Parikh.
+\newblock Cider: Consensus-based image description evaluation.
+\newblock In \emph{Proceedings of the IEEE conference on computer vision and pattern recognition}, pp.\  4566--4575, 2015.
+
+\bibitem[Wang et~al.(2025)Wang, Guo, Li, Tian, Nie, Xu, and Han]{wang2025circle}
+Chengcheng Wang, Jianyuan Guo, Hongguang Li, Yuchuan Tian, Ying Nie, Chang Xu, and Kai Han.
+\newblock Circle-rope: Cone-like decoupled rotary positional embedding for large vision-language models.
+\newblock \emph{arXiv preprint arXiv:2505.16416}, 2025.
+
+\bibitem[Wang et~al.(2023{\natexlab{a}})Wang, Wang, Xu, Zhang, Gu, Jia, Wang, Xu, Yan, Zhang, et~al.]{wang2023amber}
+Junyang Wang, Yuhang Wang, Guohai Xu, Jing Zhang, Yukai Gu, Haitao Jia, Jiaqi Wang, Haiyang Xu, Ming Yan, Ji~Zhang, et~al.
+\newblock Amber: An llm-free multi-dimensional benchmark for mllms hallucination evaluation.
+\newblock \emph{arXiv preprint arXiv:2311.07397}, 2023{\natexlab{a}}.
+
+\bibitem[Wang et~al.(2024)Wang, Bai, Tan, Wang, Fan, Bai, Chen, Liu, Wang, Ge, et~al.]{wang2024qwen2}
+Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan, Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, et~al.
+\newblock Qwen2-vl: Enhancing vision-language model's perception of the world at any resolution.
+\newblock \emph{arXiv preprint arXiv:2409.12191}, 2024.
+
+\bibitem[Wang et~al.(2023{\natexlab{b}})Wang, Dai, et~al.]{wang2023tinyllava}
+Shengshen Wang, Bowen Dai, et~al.
+\newblock Tinyllava: Lightweight language and vision assistant.
+\newblock \emph{arXiv preprint arXiv:2311.15102}, 2023{\natexlab{b}}.
+
+\bibitem[Wu et~al.(2024)Wu, Fei, Qu, Ji, and Chua]{wu2024next}
+Shengqiong Wu, Hao Fei, Leigang Qu, Wei Ji, and Tat-Seng Chua.
+\newblock Next-gpt: Any-to-any multimodal llm.
+\newblock In \emph{Forty-first International Conference on Machine Learning}, 2024.
+
+\bibitem[Yin et~al.(2024)Yin, Zhao, Zhang, Lin, Wang, Tao, Wan, Zhang, Yin, and Zhang]{yin2024sea}
+Yuanyang Yin, Yaqi Zhao, Yajie Zhang, Ke~Lin, Jiahao Wang, Xin Tao, Pengfei Wan, Di~Zhang, Baoqun Yin, and Wentao Zhang.
+\newblock Sea: Supervised embedding alignment for token-level visual-textual integration in mllms.
+\newblock \emph{arXiv preprint arXiv:2408.11813}, 2024.
+
+\bibitem[Zhang et~al.(2023)Zhang, Han, Liu, Gao, Zhou, Hu, Yan, Lu, Li, and Qiao]{zhang2023llama}
+Renrui Zhang, Jiaming Han, Chris Liu, Peng Gao, Aojun Zhou, Xiangfei Hu, Shilin Yan, Pan Lu, Hongsheng Li, and Yu~Qiao.
+\newblock Llama-adapter: Efficient fine-tuning of language models with zero-init attention.
+\newblock \emph{arXiv preprint arXiv:2303.16199}, 2023.
+
+\bibitem[Zhang et~al.(2019)Zhang, Kishore, Wu, Weinberger, and Artzi]{zhang2019bertscore}
+Tianyi Zhang, Varsha Kishore, Felix Wu, Kilian~Q Weinberger, and Yoav Artzi.
+\newblock Bertscore: Evaluating text generation with bert.
+\newblock \emph{arXiv preprint arXiv:1904.09675}, 2019.
+
+\bibitem[Zhu et~al.(2023)Zhu, Chen, Shen, Li, and Elhoseiny]{zhu2023minigpt}
+Deyao Zhu, Jun Chen, Xiaoqian Shen, Xiang Li, and Mohamed Elhoseiny.
+\newblock Minigpt-4: Enhancing vision-language understanding with advanced large language models.
+\newblock \emph{arXiv preprint arXiv:2304.10592}, 2023.
+
+\end{thebibliography}
