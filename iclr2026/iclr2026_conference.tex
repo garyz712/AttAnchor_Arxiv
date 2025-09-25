@@ -33,9 +33,13 @@
 
 % Authors and affiliations for arXiv submission
 
-\author{Your Name\\
-Your Institution\\
-\href{mailto:your.email@institution.edu}{your.email@institution.edu}
+\author{Junyang Zhang \and Tianyi Zhu\\
+California Institute of Technology\\
+\href{mailto:junyangz@caltech.edu}{junyangz@caltech.edu}, \href{mailto:tzhu@caltech.edu}{tzhu@caltech.edu}
+\and
+Thierry Tambe\\
+Stanford University\\
+\href{mailto:ttambe@stanford.edu}{ttambe@stanford.edu}
 }
 
 % The \author macro works with any number of authors. There are two commands
@@ -382,6 +386,9 @@ In our experiments, number of generated image tokens is fixed at 576, we believe
 \paragraph{Synergizing with Token Reduction} Our current approach uses some redundant tokens as AttAnchors. Thus, another promising future direction is to combine AttAnchor  with token reduction, leveraging its enhanced token locality and alignment to prune low-cosine-similarity image tokens, potentially improving computational efficiency and memory usage in resource-constrained settings without sacrificing performance.
 
 
+\section{Acknowledgments}
+
+We thank Tambe's Lab at Stanford University for hosting the author as a visiting student researcher and providing technical guidance and GPU compute resources that made this research possible. Their support was instrumental in conducting the extensive experiments across multiple model scales and datasets.
 
 
 \bibliography{iclr2026_conference}
