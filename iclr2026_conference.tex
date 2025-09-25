@@ -85,7 +85,7 @@ Current vision–language models (VLMs) like LLaVA~\citep{liu2023llava}, LLaVA-N
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{iclr2026/Attanchor_arch.png}
+    \includegraphics[width=\linewidth]{Attanchor_arch.png}
     \caption{AttAnchor (Text-into-Image): Multimodal Token Reordering in TinyLlava Architecture.}
     \label{fig:attanchor}
 \end{figure}
@@ -101,13 +101,13 @@ Prior work has largely restricted token grouping to the visual modality~\citep{h
 \begin{figure}[H]
     \centering
     \begin{minipage}{0.48\textwidth}
-        \centering       \includegraphics[width=\linewidth]{iclr2026/reordering_result.png}
+        \centering       \includegraphics[width=\linewidth]{reordering_result.png}
         \caption{Attention Anchors Assisting VLM to Answer Prompts: Key text tokens are inserted near the most relevant image tokens.}
         \label{fig:visual}
     \end{minipage}
     \hfill
     \begin{minipage}{0.51\textwidth}
-        \centering        \includegraphics[width=\linewidth]{iclr2026/radar.png}
+        \centering        \includegraphics[width=\linewidth]{radar.png}
         \caption{Radar Map Comparison between AttAnchor (Text-into-Image) and Baseline (No Reordering).}
         \label{fig:radar}
     \end{minipage}
@@ -255,7 +255,7 @@ The radar chart in Figure~\ref{fig:radarcos} unveils a compelling comparison of 
     
     \label{fig:radarcos}
     \vspace{0.5em}
-    \includegraphics[width=1.2\linewidth]{iclr2026/compare3.png}
+    \includegraphics[width=1.2\linewidth]{compare3.png}
     \captionof{figure}{Tinyllava Radar Map Comparison for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering).}
 \end{minipage}
 
@@ -274,7 +274,7 @@ The loss plot in Figure~\ref{fig:loss_plot} offers a compelling narrative of Att
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\linewidth]{iclr2026/lossCompare.png}
+    \includegraphics[width=0.9\linewidth]{lossCompare.png}
     \caption{Llava 7B Training and Validation Loss Plots for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering). All three models reach their best performance at the first epoch.}
     \label{fig:loss_plot}
 \end{figure}
@@ -421,7 +421,7 @@ This larger-scale dataset, released by HuggingFaceH4, contains about 270k multim
 \label{app:image_into_text_arch}
 
 \begin{figure}[H]
-    \centering    \includegraphics[width=1.0\linewidth]{iclr2026/Attanchor_I2T_arch.png}
+    \centering    \includegraphics[width=1.0\linewidth]{Attanchor_I2T_arch.png}
     \caption{AttAnchor (Image-into-Text) Architecture.}
     \label{fig:coser}
 \end{figure}
@@ -529,7 +529,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_383.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_383.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} Are the uniformed people in the image firemen or service men?
@@ -541,7 +541,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_15.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_15.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} Are the two people in the image inside or outside of the cabin?
@@ -552,7 +552,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_230.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_230.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What colors are the dog in the image?
@@ -563,7 +563,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 % ***
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_179.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_179.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What color are the walls in the room?
@@ -575,7 +575,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 % ***
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_178.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_178.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} Where is the clock tower located?
@@ -591,7 +591,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\linewidth]{iclr2026/reordering_263.png}\par
+    \includegraphics[width=0.9\linewidth]{reordering_263.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What vehicles are visible in the image?
@@ -603,7 +603,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.5\linewidth]{iclr2026/reordering_301.png}\par
+    \includegraphics[width=0.5\linewidth]{reordering_301.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What type of container holds the plant in the image?
@@ -614,7 +614,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 % ***
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_52.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_52.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What activity are the group of people sitting around the table doing?
@@ -626,7 +626,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 % ***
 \begin{figure}[H]
     \centering    
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_9.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_9.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} What animal is the woman riding in the image?
@@ -638,7 +638,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 % ***
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{iclr2026/reordering_10.png}\par
+    \includegraphics[width=0.7\linewidth]{reordering_10.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} Is the woman in the kitchen smiling?
@@ -654,7 +654,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_61.png}\par
+    \includegraphics[width=0.6\linewidth]{reordering_61.png}\par
     \vspace{1em}
     \raggedright
     \textbf{Prompt:} Is the young man sitting or driving the car while using his cell phone?
@@ -672,7 +672,7 @@ To visualize how Attention Anchors help assist the VLM through reordering. The t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{iclr2026/qwenloss.png}
+    \includegraphics[width=1\linewidth]{qwenloss.png}
     \caption{Qwen2.5-VL-3B Training and Validation Loss Plots for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering).}
     \label{fig:qwen_loss_plot}
 \end{figure}
