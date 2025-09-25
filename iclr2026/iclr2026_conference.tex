@@ -1,0 +1,965 @@
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2026_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{lineno}
+\usepackage{amsmath}
+\usepackage{algorithm}  
+\usepackage{algpseudocode}
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{algorithm}{\small}
+\AfterEndEnvironment{algorithm}{\normalsize}
+\usepackage{enumitem}
+\usepackage{svg}
+\usepackage{listings}
+\usepackage{arydshln}
+\usepackage{caption}
+\usepackage{multirow} 
+\captionsetup{position=bottom}
+\captionsetup[figure]{position=bottom}
+\captionsetup[table]{position=bottom}
+\setlist[itemize]{leftmargin=*, nosep}
+
+\title{AttAnchor: Guiding Cross-Modal Token Alignment in VLMs with Attention Anchors}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Anonymous Authors}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+%\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+% Force captions to bottom
+\captionsetup{position=bottom}
+\captionsetup[figure]{position=bottom}
+\captionsetup[table]{position=bottom}
+
+\maketitle
+
+\begin{abstract}
+A fundamental reason for the dominance of attention over RNNs and LSTMs in LLMs is its ability to capture long-range dependencies by modeling direct interactions between all tokens, overcoming the sequential limitations of recurrent architectures. Similarly, a key reason why today's vision–language models (VLMs) hallucinate and underperform pure language models is that they rely on direct concatenation of image and text tokens with a modality-blinded positional encoding, which conveniently adopts the pretrained LLM backbone but forces unnecessary long-distance attention between semantically related tokens across modalities. This underscores the urgent need for mechanisms that efficiently enhance token locality and cross-modal alignment. In response, we propose Attention Anchor, a parameter-free framework that efficiently groups semantically similar tokens across modalities, improving cross-modal locality. By inserting text tokens near relevant visual patches, we create semantic signposts that reveal true content-based cross-modal attention scores, guiding the model to focus on the correct image regions for tasks such as VQA, MMBench and POPE. This improves answer accuracy and reduces hallucinations without disrupting the prompt's semantic flow. AttAnchor achieves improvements across 13/15 different metrics and benchmarks, including up to 32\% gains on reasoning tasks and up to 15\% improvements on hallucination benchmarks. AttAnchor enables TinyLLaVA 1B to outperform much larger models like LLaVA 7B and QwenVL 3B on POPE with only 0.1\% inference time overhead. To the best of our knowledge, this work is among the first to investigate mixed-modal token grouping, where text and image tokens are clustered jointly into shared groups rather than being grouped within a single modality or merely aligned post-hoc with additional alignment losses.
+\end{abstract}
+
+\section{Introduction}
+
+Attention mechanisms~\citep{vaswani2017attention} have rapidly overtaken RNNs~\citep{rumelhart1986learning} and LSTMs~\citep{graves2012long} as the dominant paradigm for sequence modeling due to their efficiency and ability to capture long-range dependencies. Unlike recurrent models, which process tokens sequentially and suffer from forgetting long-range dependencies and vanishing gradients, attention enables direct interactions between all tokens in parallel, dramatically improving both training speed and representational power. Early research highlighted the severity of this limitation in recurrent models: for instance, Sequence to Sequence Learning with Neural Networks~\citep{sutskever2014sequence} demonstrated that simply reversing the input sentence significantly improved LSTM translation performance, as this reduced the physical distance between the first input token and the first generated token. This reliance on heuristics to enforce locality underscores a fundamental limitation of recurrent architectures. By contrast, attention enables every token to directly interact with all others in parallel, preserving locality without sacrificing global context, and has therefore become the foundation of modern large-scale language and vision–language models.
+
+Current vision–language models (VLMs) like LLaVA~\citep{liu2023llava}, LLaVA-NeXT~\citep{liu2024llavanext}, LLaVA-MORE~\citep{liu2024llavamore}, BLIP-2~\citep{li2023blip2}, InstructBLIP~\citep{dai2023instructblip}, MiniGPT-4~\citep{zhu2023minigpt}, LLaMA-Adapter~\citep{zhang2023llama}, QwenVL~\citep{wang2024qwen2} and TinyLLaVA~\citep{wang2023tinyllava} and Multimodal LLMs (MLLMs) like NextGPT~\citep{wu2024next}, X-LLM ~\citep{chen2023x} and OneLLM~\citep{han2024onellm} typically adopt a pretrained LLM backbone and simply concatenate tokens from different modalities generated by their corresponding projectors and encoders  (e.g., Vision Transformers~\citep{dosovitskiy2020image}), since breaking the positional prior and retraining the LLM backbone with modality-aware positional encodings~\citep{wang2025circle}  is prohibitively expensive and might lead to catastrophic forgetting of LLM's pretrained knowledge base (Appendix~\ref{app:unsuccessful_attempts}). This popular design places semantically related tokens from different modalities far apart in the sequence. Moreover, the direct use of RoPE positional encoding~\citep{su2024roformer} across modalities distorts content-based attention scores, because relative position is meaningful within a single modality but largely meaningless across modalities—for example, it is uninformative and confusing to claim that an image token is 'further away' from a text token than from an audio token. Such modality-blinded encoding ~\citep{press2021alibi, chen2023extending, sun2022length} degrades cross-modal alignment and contributes to hallucination and underperformance compared to pure LLMs.
+
+
+
+\textbf{Our Approach}: To address the challenge of aligning text and image information in VLMs, we introduce Attention Anchor (AttAnchor), a novel parameter-free architectural framework that reorders tokens by copying and placing text tokens (e.g., "shirt") near semantically similar image patches (e.g., shirt visuals) based on their cosine similarity, as shown in Figure~\ref{fig:attanchor}. This method acts like adding signposts to a map or placing sticky notes next to relevant pictures in a book: it guides the model’s attention to focus on the right image regions when answering questions, such as "is the person skiing or skateboarding?" in Figure~\ref{fig:visual}, without disrupting the original question’s meaning. These signposts help reveal the true content-based cross-modal attention scores by reducing positional penalties from standard encodings, enabling deeper transformer layers to leverage the auxiliary information and more accurate text-image interactions for better image understanding. By bringing highly relevant text and image tokens closer together, AttAnchor overcomes the limitations of standard positional encodings, like RoPE, which often weaken connections between distant tokens, leading to confusion or incorrect answers (hallucinations). This enhanced cross-modal alignment strengthens the model’s ability to understand images accurately and respond correctly, all while requiring minimal changes to existing VLM architectures and negligible extra computation, making it a practical, plug-and-play solution for improving general image understanding in VLMs and multimodal LLMs, especially under computational constraints. 
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{iclr2026/Attanchor_arch.png}
+    \caption{AttAnchor (Text-into-Image): Multimodal Token Reordering in TinyLlava Architecture.}
+    \label{fig:attanchor}
+\end{figure}
+
+
+Figure~\ref{fig:attanchor} illustrates our approach in a typical vision–language pipeline. Models such as LLaVA or TinyLLaVA concatenate hundreds of image tokens (e.g., 576 from a CLIP vision encoder~\citep{radford2021learning}) with a short text prompt (e.g., 50 tokens) into a single flat sequence
+$(I_{1}, I_{2}, \dots, I_{576}, T_{1}, T_{2}, \dots, T_{50})$.
+This design forces every transformer layer in the LLM backbone to rely on costly global attention to identify semantic correspondences—for example, aligning  tokens like ``person'' ($T_{50}$) with person-image patches ($I_{2}$), but RoPE’s positional encoding penalizes distant pairs, dropping their pre-softmax attention score from $1.2$ (relevant) to $-1.7$ (unrelated), introducing significant noise that hinders cross-modal reasoning. Our AttAnchor addresses this by inserting text tokens (e.g., ``person'') near similar image patches based on cosine similarity, creating semantic signposts (e.g., $T_{2}$, $T_{50}$) that reveal true content-based attention scores, enabling deeper layers to leverage accurate text-image interactions for robust image understanding while preserving the original text sequence.
+
+
+Prior work has largely restricted token grouping to the visual modality~\citep{huang2024efficient, cao2023pumer, fan2024semantic} or relied on additional fine-grained losses to improve alignment between modalities~\citep{yin2024sea, bica2024improving, mukhoti2023open} . In contrast, we perform mixed-modal token grouping, where text and image tokens are clustered jointly into shared groups as shown in Figure~\ref{fig:visual} and Appendix~\ref{app:visualize_text_into_image}. To the best of our knowledge, this is among the first works to explore explicit cross-modal grouping, enabling more direct multimodal interaction. We perform extensive experiments on TinyLLaVA-1B, LLaVA-7B, and QwenVL-3B across three diverse datasets, evaluating at the best checkpoints. Our study systematically varies LoRA rank, learning rate, batch size, number of epochs, early-stopping patience, and weight decay rate, consistently achieves improvements on 13 of the 15 total evaluated metrics and benchmarks, as shown in Figure~\ref{fig:radar}. These gains span multiple levels—from token-level cross-entropy loss, to sentence-level generation metrics such as BLEU and BERTScore, to reasoning-level benchmarks including VQA, MMBench, and POPE—demonstrating the robustness and generality of our approach. We also propose AttAnchor (Image-into-Text), another novel and reverse strategy that uses image tokens as attention anhors and inserts them into the text sequence, preserving the full image sequence at the start. While this approach enhances cross-modal alignment for larger models like LLaVA-7B, which can leverage their greater capacity to handle disrupted prompt causality, it fragments the text's semantic flow, leading to unstable performance and degraded reasoning capabilities in smaller models like TinyLLaVA-1B. 
+\vspace{-0.5cm}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering       \includegraphics[width=\linewidth]{iclr2026/reordering_result.png}
+        \caption{Attention Anchors Assisting VLM to Answer Prompts: Key text tokens are inserted near the most relevant image tokens.}
+        \label{fig:visual}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.51\textwidth}
+        \centering        \includegraphics[width=\linewidth]{iclr2026/radar.png}
+        \caption{Radar Map Comparison between AttAnchor (Text-into-Image) and Baseline (No Reordering).}
+        \label{fig:radar}
+    \end{minipage}
+\end{figure}
+\vspace{-0.5cm}
+Our contributions include:
+\begin{itemize}
+
+\item \textbf{Enhanced Cross-Modal Alignment:} AttAnchor reorders tokens by copying text tokens (e.g., ``shirt'') near similar image patches, creating semantic signpostthat reveal true content-based attention scores for improved image understanding. 
+\item \textbf{Token- and Sentence-Level Improvements:} Reduces cross-entropy loss and improves sentence-level metrics (BLEU, BERTScore, CIDEr, METEOR, ROUGE-L) significantly on captioning and VQA tasks, enhancing text generation quality and semantic alignment.
+\item \textbf{Reasoning-Level Improvements:} Boosts performance on reasoning-intensive benchmarks like VQA, GQA, SQA, MMBench, and MME by up to 32\%, improving accuracy on tasks requiring spatial and compositional understanding.
+\item \textbf{Hallucination Reduction:} Enhances performance on POPE, HallusionBench, and AMBER by up to 15\%, enabling TinyLLaVA 1B to achieve superior POPE performance (86.63\%) compared to much larger models like LLaVA 7B (86.60\%) and Qwen 2.5 VL 3B (85.9\%) by improving cross-modal grounding when finetuning on the same dataset.
+\item \textbf{Compute Efficiency:} Parameter-free design adds negligible overhead (e.g. 0.1\% inference time overhead on POPE), ideal for resource-constrained settings like single-GPU environments.
+\item \textbf{Plug-and-Play Simplicity:} Requires minimal changes to existing VLM architectures, enabling direct adoption of SOTA pretrained LLMs into MLLMs.
+\end{itemize}
+
+\vspace{-0.01cm}
+\section{Related Work}
+\label{sec:related-work}
+
+
+\textbf{Cross Attention-based VLM} Flamingo ~\citep{alayrac2022flamingo} is an influential Vision Language Model designed to address the alignment problem in MLLMs by introducing a cross-attention mechanism between visual and language features. Instead of projecting visual tokens directly into the language embedding space, Flamingo allows the language model to attend to the outputs of a frozen vision encoder using interleaved cross-attention layers. This design enables the model to dynamically condition on visual content when generating text, improving multimodal understanding. However, while Flamingo avoid the positional bias by introducing a novel interleaved cross-attention interface between frozen vision and language encoders, it nevertheless falls short of pure self-attention VLMs in reasoning and general language understanding. This underperformance stems from its compressed visual representations, shallow fusion layers, and inherently asymmetric information flow—text tokens attend to vision tokens, but not vice versa—hindering deep cross-modal integration. More recent self‑attention architectures such as LLaVA‑MORE~\citep{liu2024llavamore} report superior results across benchmarks like VQA, GQA, and POPE, demonstrating stronger grounding and reasoning capabilities than cross-attention models.
+
+
+
+\textbf{Circle Rotary Position Embedding} Circle-RoPE ~\citep{wang2025circle} address this challenge of positional noise by proposing a novel positional encoding framework that decouples text and image token indices to enhance multimodal understanding. Circle-RoPE projects image token indices onto a 3D circular trajectory orthogonal to the text index direction, ensuring consistent RoPE distances (Per-Token Distance, PTD = 0) between text and image tokens, thus eliminating artificial positional dependencies while preserving intra-image spatial relationships through a mixed-angle circular mapping. However, while Circle-RoPE and other similar approaches offer a potential theoretical fix, altering the positional encoding of a pretrained LLM backbone is rarely feasible in practice, as it would require retraining or heavily finetuning the model at prohibitive cost. Consequently, most deployed VLMs preserve the modality-blinded RoPE of the backbone and instead seek lightweight mechanisms to restore cross-modal locality without disturbing pretrained positional priors.
+
+\textbf{Supervised Embedding Alignment} SEA ~\citep{yin2024sea} is a novel token-level alignment strategy that leverages vision-language pre-trained models such as CLIP to generate fine-grained semantic labels for visual tokens through cosine similarity-based matching from a curated word list \citep{yin2024sea}. These labels are then used to explicitly supervise the adapter via a contrastive loss during pre-training, guiding the transformation of visual patches into the LLM's embedding space. SEA avoids additional annotation costs, maintains inference efficiency, and improves performance across multiple benchmarks and LLM scales. Their results demonstrate that SEA enhances alignment quality and model robustness, particularly in smaller LLMs where misalignment is more severe. However, SEA completely ignore the positional noises mentioned earlier that also exacerbate the misalignment issue. Furthermore, SEA relies on the frozen CLIP projector—originally trained only for aligning global [CLS] and [EOS] embeddings—to adjust the dimensions of all image and text tokens when producing alignment labels. Since this projector was never optimized for fine-grained token-level correspondence, it may inherently introduce inaccurate supervision signals, fundamentally constraining the reliability of the learned alignment.
+
+
+\section{Methods}
+
+\subsection{Attention Anchor: Augmenting Image Sequences with Text Tokens}
+
+To enhance cross-modal alignment in vision-language models, we propose AttAnchor, a lightweight framework that strategically augments the input token sequence by inserting text tokens into the image token stream, as detailed in Algorithm~\ref{alg:attanchor}. For a given image encoded into $M$ tokens $\{\mathbf{I}_1, \dots, \mathbf{I}_M\}$ via a CLIP vision encoder with a multimodal projector and a text prompt with $N$ tokens $\{\mathbf{T}_1, \dots, \mathbf{T}_N\}$, AttAnchor computes cosine similarities between each text token and all image tokens to identify the most similar image token above a threshold $\tau_{\text{align}}$. The text token is then copied and inserted immediately after this matched image token, preserving the original relative image token order and appending the full text prompt unchanged at the end. To optimize the model for this reordered sequence, we apply LoRA~\citep{hu2022lora} to fine-tune both the multimodal projector and the LLM backbone, keeping the vision encoder frozen and ensuring efficient adaptation with minimal parameter updates. This approach ensures that the transformer prioritizes content-driven connections between text and image tokens, facilitating accurate attention in deeper layers for tasks requiring visual grounding, while incurring negligible computational cost, making it highly efficient for resource-limited settings like single-GPU training. We provide a comprehensive theoretical analysis of AttAnchor's effectiveness in Appendix~\ref{app:theoretical_analysis}, including formal proofs of attention score improvements and time complexity analysis.
+
+
+\begin{algorithm}[H]
+\caption{AttAnchor (Text-into-Image): Text Token Insertion into Image Sequence}
+\label{alg:attanchor}
+\begin{algorithmic}[1]
+\Require Image token embeddings $\{\mathbf{I}_1, \dots, \mathbf{I}_M\} \subset \mathbb{R}^d$ from CLIP vision encoder, text prompt token embeddings $\{\mathbf{T}_1, \dots, \mathbf{T}_N\} \subset \mathbb{R}^d$, cosine similarity threshold $\tau_{\text{align}}$
+\Ensure Reordered multimodal token sequence with unmodified text prompt
+\State Initialize empty sequence $\text{sequence} \gets [\,]$
+\State Define alignment threshold $\tau_{\text{align}} \in [0, 1]$
+\For{$m = 1$ to $M$}
+    \State Append image token $I_m$ to $\text{sequence}$
+\EndFor
+\For{$n = 1$ to $N$}
+    \State Compute cosine similarities: 
+    \[
+        \text{sim}(m) \gets \frac{\mathbf{T}_n \cdot \mathbf{I}_m}{\|\mathbf{T}_n\| \cdot \|\mathbf{I}_m\|}, \quad \forall m \in \{1, \dots, M\}
+    \]
+    \State Find best matching image token:
+    \[
+        m^*, s^* \gets \arg\max_{m} \text{sim}(m), \quad \text{sim}(m^*) = s^*
+    \]
+    \If{$s^* \geq \tau_{\text{align}}$}
+        \State Insert text token $T_n$ into $\text{sequence}$ immediately after $I_{m^*}$
+    \EndIf
+\EndFor
+\For{$n = 1$ to $N$}
+    \State Append text token $T_n$ to $\text{sequence}$
+\EndFor
+\State \Return $\text{sequence}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{AttAnchor (Image-into-Text): Image-into-Text Insertion}
+For comparison, we also proposed AttAnchor (Image-into-Text) (detailed in Appendix~\ref{app:alt_algorithm}), 
+another innovative approach that inserts copied image tokens into the text sequence based on cosine similarity, prepending the full image sequence to maintain visual context. The architecture of this approach is illustrated in Appendix~\ref{app:image_into_text_arch}. While this method could potentially leverage padding tokens as pause tokens~\citep{goyal2023think} to allow the model to process mixed-modality inputs longer, it disrupts the text prompt's contiguous structure, critical for tasks like compositional reasoning or object detection, leading to suboptimal performance in smaller models like TinyLLaVA-1B due to their limited capacity to handle fragmented linguistic context. Larger models like LLaVA-7B, with greater robustness to such disruptions, benefit from the enhanced cross-modal locality, outperforming the baseline by leveraging stronger alignment capabilities. This contrasts with our primary AttAnchor approach, which preserves text prompt causality for superior cross-modal alignment across all model scales.
+
+
+\section{Experiments}
+
+\subsection{Evaluation Datasets, Metrics and Benchmarks}
+
+We evaluate our approach on 3 instruction-following datasets of varying scales across 15 metrics and  benchmarks. Details are in Appendix~\ref{app:datasets} and Appendix~\ref{app:eval_metrics}. 
+
+(1) \textbf{Token-level metrics} measure fit through negated cross-entropy loss on the validation dataset;
+
+(2) \textbf{Sentence-level evaluation metrics} assess text quality using BLEU~\citep{papineni2002bleu}, METEOR~\citep{banerjee2005meteor}, CIDEr~\citep{vedantam2015cider}, ROUGE-L~\citep{lin2004rouge}, and BERTScore~\citep{zhang2019bertscore} from n-gram overlap to semantic similarity on the validation dataset; 
+
+(3) \textbf{Visual Question Answering (VQA) benchmarks} test visual reasoning on VQAv2~\citep{goyal2017making}, GQA~\citep{hudson2019gqa}, ScienceQA~\citep{lu2022learn}, and VizWiz~\citep{gurari2018vizwiz}; 
+
+(4) \textbf{Multimodal benchmarks} assess comprehensive understanding via MMBench~\citep{lu2022learn} and MME~\citep{fu2023mme}. 
+
+(5) \textbf{Hallucination benchmarks} evaluate object hallucination reduction using POPE~\citep{li2023evaluating}, HallusionBench~\citep{guan2024hallusionbench}, and AMBER~\citep{wang2023amber};
+
+
+\subsection{Training Configurations}
+
+To better unveil the effect of the cross-modal positional bias, we employ TinyLlava 1B as our primary model for its size and simplicity, as larger VLMs can compensate this bias and obscure its real impact via deeper layers. All experiments were conducted on NVIDIA H100 GPUs with 80\,GB of memory, and each run completed within 10 hours. We conducted a comprehensive exploration of hyperparameter settings to ensure robust training, and the final optimal configuration is detailed in Table~\ref{tab:cos_train_config}. The training configurations for LLaVA-7B and Qwen2.5-VL-3B experiments are provided in Appendix~\ref{app:training_configs}. To balance efficiency and coverage, we empirically determined a threshold that selects roughly $10\%$ of the text tokens as attention anchors, which are subsequently interleaved with the image tokens. Early stopping is applied to guard against overfitting, and a sufficiently large maximum number of epochs is employed to prevent underfitting. Both the modified and the original models are trained with the same configurations for fair comparisons. Unit tests have been added to ensure setting Similarity Threshold to 1 will generate exactly the same output as the original Tinyllava model, because no cosine similarity can be greater than 1 and thus no reordering will happen. All code and necessary data will be made publicly available upon publication to ensure reproducibility.
+
+ 
+
+\subsection{From Tokens To Reasoning: A Comprehensive Radar Analysis of Cross-Modal Alignment}
+
+The radar chart in Figure~\ref{fig:radarcos} unveils a compelling comparison of our proposed methods—AttAnchor (Text-into-Image), AttAnchor (Image-into-Text) (image token insertion into text sequence), and the baseline (no insertion)—following fine-tuning with identical configurations. As visualized in Appendix~\ref{app:visualize_text_into_image}, AttAnchor emerges as the standout performer, its expansive radar polygon signaling robust gains across token-level precision, sentence-level coherence, hallucination reduction, and reasoning capabilities, driven by its seamless integration of text signposts that preserve prompt causality while enhancing cross-modal alignment. AttAnchor (Image-into-Text), while showing some improvement, exhibits a fragmented polygon, reflecting inconsistent alignment due to text sequence disruption, which undermines its effectiveness compared to AttAnchor in smaller models. The baseline, with its constricted shape, highlights the inherent limitations of standard VLMs in overcoming positional distortions, reinforcing the need for strategic token reordering. This analysis underscores AttAnchor (Text-into-Image)'s superiority in unlocking true content-based interactions, offering a scalable solution for resource-constrained settings.
+
+
+\begin{minipage}[t]{0.48\textwidth}
+    \scriptsize
+    \centering
+    \captionof{table}{Cosine Similarity Training Configuration for TinyLlava Experiments}
+    \label{tab:cos_train_config}
+    \vspace{0.5em}
+    \footnotesize
+    \begin{tabular}{ll}
+    \hline
+    \textbf{Parameter}       & \textbf{Value}               \\
+    \hline
+    Base Model          & tiny-llava-v1-hf                            \\
+    Image Tokens          & 576 \\
+    Training Epochs          & 4                            \\
+    Early Stopping Patience  & 10,000 steps
+           \\
+    Early Stopping Criteria  & Validation Loss
+           \\
+    Best Epoch               & 2
+           \\
+    Datatype                 & fp16               \\
+    Similarity Threshold                & 0.12                            \\
+    LoRA Rank                & 32                            \\
+    LoRA Alpha                & 64                            \\
+    LoRA Dropout             & 0.05                         \\
+    Per Device Batch Size         & 4
+    \\
+    Gradient Accumulation Steps  & 4
+    \\
+    Learning Rate            & $1 \times 10^{-4}$ 
+    \\
+    Learning Rate Scheduler           & Cosine 
+    \\
+
+    Warmup Ratio                 & 0.03                \\
+    Weight Decay rate                 & 0.003                \\
+    Optimizer                & AdamW  \\
+    \hline
+    \end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    
+    \label{fig:radarcos}
+    \vspace{0.5em}
+    \includegraphics[width=1.2\linewidth]{iclr2026/compare3.png}
+    \captionof{figure}{Tinyllava Radar Map Comparison for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering).}
+\end{minipage}
+
+
+
+
+
+
+
+
+
+
+\subsection{Analyzing AttAnchor's Training Dynamics}
+
+The loss plot in Figure~\ref{fig:loss_plot} offers a compelling narrative of AttAnchor's evolution against the baseline on the LLaVA-7B model, revealing a dynamic shift in performance over training iterations. Initially, the baseline is competitive with AttAnchor in losses, leveraging the original architecture's established stability, providing a familiar starting point for the transformer. However, as training progresses, AttAnchor adapts, harnessing its text token insertions as semantic signposts to guide cross-modal attention, significantly surpassing the baseline with a steadily declining loss curve. This transition underscores AttAnchor's ability to efficiently rewire the model, transforming text cues into powerful anchors that enhance image-text alignment, a clear advantage for resource-constrained settings. Similar training dynamics are observed for Qwen2.5-VL-3B experiments, as shown in Appendix~\ref{app:qwen_training_dynamics}. The detailed training configurations for these experiments are provided in Appendix~\ref{app:training_configs}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{iclr2026/lossCompare.png}
+    \caption{Llava 7B Training and Validation Loss Plots for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering). All three models reach their best performance at the first epoch.}
+    \label{fig:loss_plot}
+\end{figure}
+
+\subsection{Threshold Analysis for Cross-Modal Token Reordering}
+Table~\ref{tab:threshold} presents the impact of varying the cosine similarity threshold $\tau_{\text{align}}$ in AttAnchor (Text-into-Image), which controls the number of text tokens inserted as attention anchors to annotate and enhance the image token sequence. Lowering the threshold from 1.0 (baseline) to 0.08 increases the number of inserted text tokens, enriching cross-modal alignment by providing more semantic cues for the transformer to focus on relevant image regions. This leads to optimal performance at $\tau_{\text{align}} = 0.12$ or $0.14$, where the model outperforms the baseline across 13 out 15 metrics, as these thresholds balance the addition of informative anchors with minimal noise from less accurate similarity matches. Notably, as we lower the cosine similarity threshold, hallucination (POPE, HallusionBench, Amber) and multimodal benchmarks (MME, MMBench) show significant improvements, particularly for smaller models like TinyLLaVA-1B, due to enhanced grounding from additional anchors, which guide deeper transformer layers to prioritize content-driven interactions. Interestingly, for VizWiz, which contains lower-quality, blurry images, setting a higher threshold (e.g., $\tau_{\text{align}} = 0.14$) could achieve gains over the baseline, as lower thresholds (e.g., 0.12 or below) introduce noise by inserting text tokens based on less reliable cosine similarity scores, disrupting alignment in visually challenging settings~\citep{gurari2018vizwiz}. This threshold-dependent behavior underscores the AttAnchor (Text-into-Image)’s adaptability, enabling robust performance across diverse tasks while maintaining efficiency in resource-constrained environments.
+
+
+
+\definecolor{customgreen}{rgb}{0, 0.6, 0.302}
+\begin{table}[H]
+\caption{Comparison of Tinyllava 1B performance metrics across different reordering thresholds.}
+\centering
+\scriptsize
+\begin{tabular}{@{}c l ccccccc@{}}
+\toprule
+\textbf{Category} & \textbf{Performance/Threshold} & \textbf{1 (Baseline)} & \textbf{0.16} & \textbf{0.14} & \textbf{0.12} & \textbf{0.10} & \textbf{0.08} \\
+\midrule
+\multirow{1}{*}{\centering Loss} 
+ & Val Loss (Negated) & -1.0716 & -1.0706 & \textcolor{customgreen}{-1.0704} & -1.0712 & -1.0706 & -1.0710 \\
+
+\midrule
+\multirow{5}{*}{\centering Eval Metrics} 
+ & BLEU & 0.5663 & 0.5654 & \textcolor{customgreen}{0.5698} & 0.5680 & 0.5652 & 0.5670 \\
+ & BERTScore & 0.9616 & 0.9616 & \textcolor{customgreen}{0.9619} & 0.9617 & 0.9615 & 0.9617 \\
+ & METEOR & 0.6888 & 0.6877 & \textcolor{customgreen}{0.6917} & 0.6901 & 0.6898 & 0.6895 \\
+ & CIDEr & 4.0793 & 4.0665 & \textcolor{customgreen}{4.0990} & 4.0860 & 4.0508 & 4.0781 \\
+ & ROUGE-L & 0.7054 & 0.7058 & \textcolor{customgreen}{0.7080} & 0.7066 & 0.7051 & 0.7061 \\
+
+\midrule
+\multirow{3}{*}{\centering{VQA}} 
+ & VQAv2 & 69.11 & 69.74 & 69.64 & 70.11 & 69.77 & \textcolor{customgreen}{70.45} \\
+ & SQA & 54.94 & \textcolor{customgreen}{55.46} & 55.25 & 54.92 & 54.94 & 54.14 \\
+ & GQA & 54.24 & \textcolor{customgreen}{55.26} & 54.04 & 55.00 & 54.69 & 54.95 \\
+
+
+ & VizWiz & 42.36 & 36.09 & \textcolor{customgreen}{43.24} & 31.54 & 37.49 & 36.21 \\
+
+\midrule
+\multirow{2}{*}{\centering{Multimodal}} 
+ & MMBench & 12.97 & 15.29 & \textcolor{customgreen}{17.10} & 13.06 & 11.86 & 15.29 \\
+ & MME & 1392 & 1391 & 1371 & 1452 & 1424 & \textcolor{customgreen}{1465} \\
+
+\midrule
+\multirow{3}{*}{\centering Hallucination} 
+ & POPE & 75.06 & 61.9 & 75.4 & 84.8 & 81.7 & \textcolor{customgreen}{85.1} \\
+ & Amber & 81.2 & 81.4 & 81.6 & 81.8 & 81.3 & \textcolor{customgreen}{82.3} \\
+ & HallusionBench & 37.11 & 37.73 & 39.50 & \textcolor{customgreen}{40.21} & 39.15 & 39.06 \\
+
+
+\bottomrule
+\end{tabular}
+\label{tab:threshold}
+\end{table}
+
+
+\subsection{From Disruption to Alignment: Comparing Attention Anchor (Text-into-Image) and AttAnchor (Image-into-Text) Across Model Scales}
+
+Table~\ref{tab:model_comparison} compares the AttAnchor (Text-into-Image) and AttAnchor (Image-into-Text) across different model scales, revealing distinct performance trends. For smaller models like TinyLLaVA-1B, AttAnchor (Text-into-Image) improves 13/15 metrics, but AttAnchor (Image-into-Text) improves only 6/15 metrics, as inserting image tokens into the text sequence disrupts the causal semantic flow critical for coherent prompt processing, which limited-capacity models struggle to recover from. In contrast, larger models like LLaVA-7B, with greater capacity to handle mixed-modality prompts, leverage AttAnchor (Image-into-Text)'s enhanced locality to improve 11/15 metrics, demonstrating robustness to text disruptions. Conversely, AttAnchor (Text-into-Image) excels in smaller models, achieving significant gains and improving 13/15 metrics compared to improving 11/15 metrics for 7B model, particularly in hallucination benchmarks, as their fewer layers are less adept at compensating for positional biases, making text-to-image insertion’s alignment benefits more pronounced. These findings highlight AttAnchor (Text-into-Image)’s superior adaptability for resource-constrained settings, where smaller models benefit most from precise cross-modal grounding. Similar experimental results and training configurations for Qwen2.5-VL-3B are provided in Appendix~\ref{app:training_configs} and Appendix~\ref{app:qwen_results}.
+
+\begin{table}[H]
+\centering
+\caption{Performance Comparison: TinyLlava 1B vs Llava 7B across Different Methods}
+\scriptsize
+\begin{tabular}{@{}l|ccc|ccc@{}}
+\toprule
+& \multicolumn{3}{c|}{\textbf{TinyLlava 1B}} & \multicolumn{3}{c}{\textbf{Llava 7B}} \\
+\textbf{Performance} & \textbf{Baseline} & \textbf{AttAnchor} & \textbf{AttAnchor (Img)} & \textbf{Baseline} & \textbf{AttAnchor} & \textbf{AttAnchor (Img)} \\
+\midrule
+Loss (Negated) & -1.0716 & \textcolor{customgreen}{-1.0712} & -1.0728 & -1.0224 & \textcolor{customgreen}{-1.0146} & -1.0166 \\
+BLEU & 0.5663 & \textcolor{customgreen}{0.5680} & 0.5652 & 0.5819 & 0.5828 & \textcolor{customgreen}{0.5833} \\
+BERTScore & 0.9616 & \textcolor{customgreen}{0.9617} & 0.9614 & 0.9636 & 0.9636 & \textcolor{customgreen}{0.9637} \\
+METEOR & 0.6888 & \textcolor{customgreen}{0.6901} & 0.6893 & 0.7021 & \textcolor{customgreen}{0.7033} & 0.7029 \\
+CIDEr & 4.0793 & \textcolor{customgreen}{4.0860} & 4.0423 & 4.2556 & \textcolor{customgreen}{4.2837} & 4.2825 \\
+ROUGE-L & 0.7054 & \textcolor{customgreen}{0.7066} & 0.7050 & 0.7192 & 0.7200 & \textcolor{customgreen}{0.7203} \\
+
+VQAv2 & 69.11 & \textcolor{customgreen}{70.11} & 69.87 & \textcolor{customgreen}{76.16} & 75.86 & 75.94 \\
+SQA & \textcolor{customgreen}{54.94} & 54.92 & 54.66 & 68.22 & \textcolor{customgreen}{69.87} & 68.62 \\
+GQA & 54.24 & \textcolor{customgreen}{55.00} & 54.66 & \textcolor{customgreen}{60.91} & 60.60 & 60.57 \\
+VizWiz & \textcolor{customgreen}{42.36} & 31.54 & 38.04 & 47.6 & 48.0 & \textcolor{customgreen}{49.5} \\
+
+MMBench & 12.97 & 13.06 & \textcolor{customgreen}{16.41} & 47.65 & 47.68 & \textcolor{customgreen}{49.39} \\
+MME & 1392 & \textcolor{customgreen}{1452} & 1401 & 1784 & \textcolor{customgreen}{1800} & 1788 \\
+
+POPE & 75.06 & 84.83 & \textcolor{customgreen}{86.63} & 86.60 & \textcolor{customgreen}{86.70} & 86.63 \\
+Amber & 81.2 & \textcolor{customgreen}{81.8} & 79.9 & 86.1 & \textcolor{customgreen}{86.3} & 85.9 \\
+HallusionBench & 37.11 & \textcolor{customgreen}{40.21} & 36.58 & \textcolor{customgreen}{42.07} & 40.12 & 41.63 \\
+
+
+\bottomrule
+\end{tabular}
+\label{tab:model_comparison}
+\end{table}
+\vspace{-0.7cm}
+
+\section{Conclusion}
+
+In this work, we introduced AttAnchor, a novel parameter-free method for enhancing cross-modal alignment in vision-language models through strategic token reordering. By inserting text tokens near semantically similar image patches based on cosine similarity, AttAnchor creates semantic signposts that guide attention to relevant image regions, addressing the fundamental positional bias problem in multimodal transformers.
+
+Our evaluation across 15 metrics and benchmarks demonstrates AttAnchor's effectiveness, with improvements in 13 out of 15 evaluated metrics. The method shows consistent gains across token-level, sentence-level, reasoning-level, and hallucination reduction tasks while maintaining computational efficiency and requiring minimal architectural changes.
+
+AttAnchor highlights the importance of addressing cross-modal positional biases and opens new directions for mixed-modal token grouping research. The parameter-free, plug-and-play design makes it particularly valuable for practitioners working with limited computational resources.
+\vspace{-0.2cm}
+\section{Limitations and Future Works}
+
+\paragraph{Addressing Internal Misalignment}
+QwenVL experiments in Appendix~\ref{app:qwen_results} show that some VLMs suffer from internal misalignment across modalities, significantly reducing  optimal similarity threshold and reliable image-text matches required by AttAnchors. Therefore, a promising direction is to integrate our method with Supervised Embedding Alignment (SEA) discussed in  Section~\ref{sec:related-work}, which provides explicit token-level content supervision using CLIP-based semantic labels and improves content alignment. Combining explicit content alignment from SEA with our positional alignment strategy could yield a more comprehensive solution to multimodal token misalignment, further enhancing robustness and generalization in MLLMs.
+
+
+\paragraph{Extension to Longer Image Sequences and Multimodal LLMs} 
+In our experiments, number of generated image tokens is fixed at 576, we believe our approach will be more effective after increasing the number of image tokens, and the proposed approach can be naturally extended to broader multimodal large language models. In particular, future work will explore incorporating additional modalities such as audio, video, and sensor streams (e.g., IMU data), which would enable richer contextual understanding and more versatile applications. Extending our framework to these domains has the potential to further validate its flexibility and effectiveness, as well as open new directions for multimodal reasoning and interaction.
+
+\paragraph{Synergizing with Token Reduction} Our current approach uses some redundant tokens as AttAnchors. Thus, another promising future direction is to combine AttAnchor  with token reduction, leveraging its enhanced token locality and alignment to prune low-cosine-similarity image tokens, potentially improving computational efficiency and memory usage in resource-constrained settings without sacrificing performance.
+
+
+
+
+\bibliography{iclr2026_conference}
+\bibliographystyle{iclr2026_conference}
+
+\appendix
+\section{Dataset Details}
+\label{app:datasets}
+
+
+We evaluate our approach on three instruction-following datasets of varying scales: LLaVA-Instruct-150K (~150k samples)~\citep{liu2023llava} for primary training, llava-instruct-mix-vsft-mini (~8k samples)~\citep{unsloth_llava_instruct_mix_vsft_mini} for prototyping, and llava-instruct-mix-vsft (~270k samples)~\citep{huggingfaceh4_llava_instruct_mix_vsft} for additional verification. These datasets provide diverse multimodal instruction-following scenarios with varying question formats from open-ended to multiple-choice. 
+
+\paragraph{LLaVA-Instruct-150K.} 
+This dataset, containing roughly 150k samples, is the primary training corpus used in our experiments. It was also one of the key datasets employed in the original LLaVA model training~\citep{liu2023llava}. Unlike benchmark datasets, it contains only open-ended questions, making it particularly well-suited for avoiding overfitting to specific evaluation formats. 
+
+\paragraph{llava-instruct-mix-vsft-mini.} 
+This smaller variant comprises about 8{,}000 samples~\citep{unsloth_llava_instruct_mix_vsft_mini}. Each entry includes an image, a question grounded in the image, and the corresponding ground-truth answer. In addition to standard open-ended responses, the dataset contains multiple-choice and true/false questions, providing more benchmark-like evaluation formats. We primarily used this dataset for early prototyping and testing.  
+
+\paragraph{llava-instruct-mix-vsft.} 
+This larger-scale dataset, released by HuggingFaceH4, contains about 270k multimodal instruction-following samples~\citep{huggingfaceh4_llava_instruct_mix_vsft}. Each entry pairs an image with a natural language instruction or question and a reference answer. Compared with the mini version, it offers broader coverage of concepts and instruction types, and we used it mainly for additional verification.
+
+
+
+\section{AttAnchor (Image-into-Text) Architecture}
+\label{app:image_into_text_arch}
+
+\begin{figure}[H]
+    \centering    \includegraphics[width=1.0\linewidth]{iclr2026/Attanchor_I2T_arch.png}
+    \caption{AttAnchor (Image-into-Text) Architecture.}
+    \label{fig:coser}
+\end{figure}
+
+Figure~\ref{fig:coser} illustrates the AttAnchor (Image-into-Text) architecture, which represents the reverse approach to our primary AttAnchor method. Unlike AttAnchor (Text-into-Image) that inserts text tokens into the image sequence, this approach inserts image tokens into the text sequence based on cosine similarity. The architecture shows how image patches are copied and strategically placed near semantically similar text tokens, creating visual anchors that guide attention within the text sequence. This method prepends the full image sequence to maintain visual context while disrupting the text prompt's contiguous structure. While this approach enhances cross-modal locality for larger models with greater capacity to handle fragmented linguistic context, it can lead to suboptimal performance in smaller models due to their limited ability to recover from text sequence disruptions.
+
+
+\section{AttAnchor (Image-into-Text) Algorithm: Image-into-Text Insertion}
+\label{app:alt_algorithm}
+
+\begin{algorithm}[H]
+\caption{AttAnchor (Image-into-Text): Image Token Insertion into Text Sequence}
+\label{alg:image_into_text}
+\begin{algorithmic}[1]
+\Require Image token embeddings $\{\mathbf{I}_1, \dots, \mathbf{I}_M\} \subset \mathbb{R}^d$ from CLIP, text token embeddings $\{\mathbf{T}_1, \dots, \mathbf{T}_N\} \subset \mathbb{R}^d$, threshold $\tau_{\text{align}}$, number of pad (pause) tokens $K \geq 0$, think mode flag $\text{think\_mode}$
+\Ensure Reordered multimodal token sequence with optional pause tokens
+\State Initialize $\text{sequence} \gets [\,]$
+\For{$m = 1$ to $M$}
+    \State Append $I_m$ to $\text{sequence}$
+\EndFor
+\For{$n = 1$ to $N$}
+    \State Append $T_n$ to $\text{sequence}$
+\EndFor
+\For{$m = 1$ to $M$}
+    \State Compute cosine similarities: 
+    \[
+        \text{sim}(n) \gets \frac{\mathbf{I}_m \cdot \mathbf{T}_n}{\|\mathbf{I}_m\| \cdot \|\mathbf{T}_n\|}, \quad \forall n \in \{1, \dots, N\}
+    \]
+    \State Find best match: $n^*, s^* \gets \arg\max_{n} \text{sim}(n)$
+    \If{$s^* \geq \tau_{\text{align}}$}
+        \State Insert $I_m$ after $T_{n^*}$ in $\text{sequence}$
+    \EndIf
+\EndFor
+\If{$\text{think\_mode}$}
+    \For{$k = 1$ to $K$}
+        \State Append pause token $P_k$ to $\text{sequence}$ with attention mask = 1, label = $-100$
+    \EndFor
+\EndIf
+\State \Return $\text{sequence}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Evaluation Metrics and Benchmarks Details}
+\label{app:eval_metrics}
+
+\subsection{Token-Level Metric}
+\paragraph{Negative Validation Loss.}
+We use cross-entropy on the held-out validation set as a token-level measure of fit. For consistency in radar plots, we negate this value so that higher scores indicate better performance.
+
+\subsection{Sentence-Level Metrics}
+\paragraph{BLEU \citep{papineni2002bleu}.}
+BLEU computes $n$-gram precision with a brevity penalty to discourage short outputs. It is widely used but sensitive to surface overlap and less robust to paraphrasing.  
+
+\paragraph{BERTScore \citep{zhang2019bertscore}.}
+BERTScore compares contextual embeddings of tokens from candidate and reference texts. This makes it more robust to paraphrasing than surface metrics.  
+
+\paragraph{METEOR \citep{banerjee2005meteor}.}
+METEOR aligns candidate and reference texts using stemming and synonyms. It emphasizes recall and correlates better with human judgments than BLEU.  
+
+\paragraph{CIDEr \citep{vedantam2015cider}.}
+CIDEr evaluates consensus with multiple references using TF–IDF–weighted $n$-grams. It is specifically designed for image captioning tasks.  
+
+\paragraph{ROUGE-L \citep{lin2004rouge}.}
+ROUGE-L measures the longest common subsequence between candidate and reference. It reflects sentence-level fluency and word order.  
+
+
+
+\subsection{VQA Benchmarks}
+\paragraph{VQAv2 \citep{goyal2017making}.}
+VQAv2 mitigates language priors by pairing similar images that require different answers. It remains the standard dataset for visual question answering.  
+
+\paragraph{ScienceQA (SQA) \citep{lu2022learn}.}
+ScienceQA contains multimodal multiple-choice science questions with curated explanations. It spans natural sciences, language, and social sciences.
+
+\paragraph{GQA \citep{hudson2019gqa}.}
+GQA tests compositional reasoning using scene graphs derived from Visual Genome. It includes millions of real-world questions across diverse reasoning types.  
+
+
+\paragraph{VizWiz \citep{gurari2018vizwiz}.}
+VizWiz evaluates VQA models on real-world images taken by people who are blind, featuring questions about daily life challenges. It includes answerable and unanswerable questions, testing model robustness on low-quality images and accessibility scenarios.
+
+\subsection{General Multimodal Benchmarks}
+\paragraph{MMBench \citep{lu2022learn}.}
+MMBench is a holistic benchmark that covers both perception tasks and reasoning tasks. It evaluates general multimodal understanding beyond VQA.
+
+\paragraph{MME \citep{fu2023mme}.}
+MME is a comprehensive benchmark that evaluates both perception and cognition abilities across 14 subtasks, ranging from basic visual perception (existence, count, position, color) to complex reasoning (commonsense, numerical calculation, code reasoning).
+
+
+\subsection{Hallucination Benchmarks}
+\paragraph{POPE \citep{li2023evaluating}.}
+POPE probes object hallucinations in LVLMs using polling-based binary questions. It contains random, popular, and adversarial subsets. The average accuracy of these 3 subsets is reported, and it is the easiest hallucination benchmark used in this paper.  
+
+\paragraph{AMBER \citep{wang2023amber}.}
+AMBER evaluates existence, attribute, and relation hallucinations. It is designed to be LLM-free and computationally efficient. It is the most comprehensive hallucination benchmark used in this paper.
+
+\paragraph{HallusionBench \citep{guan2024hallusionbench}.}
+HallusionBench targets entangled hallucinations and visual illusions. It provides controlled question pairs for diagnostic evaluation.  It is the most difficult hallucination benchmark used in this paper.
+
+
+\section{Visualize Tinyllava Attention Anchors (Text-into-Image)}
+\label{app:visualize_text_into_image}
+
+To visualize how Attention Anchors help assist the VLM through reordering. The text of each Semantic Signposts (in green) are attached to the positions of their best-match image tokens. As shown below, the text attention anchors are mostly well-aligned to the relevant image tokens.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_383.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} Are the uniformed people in the image firemen or service men?
+    
+    \textbf{Model Answer:} The uniformed people in the image are firemen.
+\end{figure}
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_15.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} Are the two people in the image inside or outside of the cabin?
+    
+    \textbf{Model Answer:} The two people in the image are standing outside of the cabin.
+    \label{fig:qwen_loss_plot}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_230.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What colors are the dog in the image?
+    
+    \textbf{Model Answer:} The dog in the image is brown and white.
+\end{figure}
+
+
+% ***
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_178.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} Where is the clock tower located?
+    
+    \textbf{Model Answer:} The clock tower is located on a street corner in a small town, standing tall in the middle of the town.
+\end{figure}
+% ***
+
+
+% ***
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_179.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What color are the walls in the room?
+    
+    \textbf{Model Answer:} The walls in the room are blue.
+\end{figure}
+% ***
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{iclr2026/reordering_263.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What vehicles are visible in the image?
+    
+    \textbf{Model Answer:} In the image, there is a white pickup truck and a camper trailer visible.
+    \label{fig:qwen_loss_plot}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{iclr2026/reordering_301.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What type of container holds the plant in the image?
+    
+    \textbf{Model Answer:} The plant in the image is held in a glass vase.
+\end{figure}
+
+% ***
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_52.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What activity are the group of people sitting around the table doing?
+
+    \textbf{Model Answer:} The people in the image are sitting around a table with pizza and drinks, enjoying a meal together.
+\end{figure}
+% ***
+
+% ***
+\begin{figure}[H]
+    \centering    
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_9.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} What animal is the woman riding in the image?
+    
+    \textbf{Model Answer:} The woman is riding an elephant in the image.
+\end{figure}
+% ***
+
+% ***
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{iclr2026/reordering_10.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} Is the woman in the kitchen smiling?
+    
+    \textbf{Model Answer:} Yes, the woman in the kitchen is smiling.
+\end{figure}
+% \vspace{-3em}
+% ***
+
+
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{iclr2026/reordering_61.png}\par
+    \vspace{1em}
+    \raggedright
+    \textbf{Prompt:} Is the young man sitting or driving the car while using his cell phone?
+    
+    \textbf{Model Answer:} The young man is sitting in the car while talking on his cell phone.
+\end{figure}
+
+
+% 
+
+
+
+\section{Qwen2.5-VL-3B Training Dynamics}
+\label{app:qwen_training_dynamics}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{iclr2026/qwenloss.png}
+    \caption{Qwen2.5-VL-3B Training and Validation Loss Plots for AttAnchor (Text-into-Image), AttAnchor (Image-into-Text), and Baseline (No Reordering).}
+    \label{fig:qwen_loss_plot}
+\end{figure}
+
+The loss plots in Figure~\ref{fig:qwen_loss_plot} demonstrate similar training dynamics for the Qwen2.5-VL-3B model, validating the consistency of AttAnchor's performance across different model architectures. Both AttAnchor (Text-into-Image) and AttAnchor (Image-into-Text) show improved validation loss trajectories compared to the baseline, with AttAnchor (Image-into-Text) achieving the lowest final validation loss. The training loss curves remain similar across all methods, indicating that the improvements stem from better generalization rather than training optimization differences.
+
+
+
+
+\section{Training Configurations for LLaVA-7B and Qwen2.5-VL-3B AttAnchor Experiments}
+\label{app:training_configs}
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{ll}
+    \hline
+    \textbf{Parameter}       & \textbf{Value}               \\
+    \hline
+    Base Model          & Llava-1.5-7b-hf                            \\
+    Image Tokens          & 576                            \\
+    Training Epochs          & 2                            \\
+    Early Stopping Patience  & 5,000 steps
+           \\
+    Early Stopping Criteria  & Validation Loss
+           \\
+    Best Epoch               & 1
+           \\
+    Datatype                 & \texttt{fp16}                \\
+    Similarity Threshold                & 0.12                            \\
+    LoRA Rank                & 8                            \\
+    LoRA Alpha                & 16                            \\
+    LoRA Dropout             & 0.05                         \\
+    Per Device Train Batch Size         & 8
+    \\
+    Gradient Accumulation Steps  & 4
+    \\
+    Learning Rate            & $2 \times 10^{-4}$ 
+    \\
+    Learning Rate Scheduler           & Cosine 
+    \\
+    
+    Warmup Ratio                 & 0.03                \\
+    Weight Decay rate                 & 0.00                \\
+    Optimizer                & \texttt{paged\_adamw\_8bit}  \\
+    \hline
+    \end{tabular}
+    \caption{Training Configuration for LLaVA-7B AttAnchor Experiments}
+    \label{tab:cos_train_config_7b}
+    \end{table}
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{ll}
+    \hline
+    \textbf{Parameter}       & \textbf{Value}               \\
+    \hline
+    Base Model          & Qwen2.5-VL-3B-Instruct                            \\
+    Image Tokens          & 576 \\
+    Training Epochs          & 2                            \\
+    Early Stopping Patience  & 4,500 steps
+           \\
+    Early Stopping Criteria  & Validation Loss
+           \\
+    Best Epoch               & 2
+           \\
+    Datatype                 & \texttt{bf16}                \\
+    Similarity Threshold                & 0.08                            \\
+    LoRA Rank                & 32                            \\
+    LoRA Alpha                & 64                            \\
+    LoRA Dropout             & 0.05                         \\
+    Per Device Train Batch Size         & 8
+    \\
+    Gradient Accumulation Steps  & 4
+    \\
+    Learning Rate            & $1 \times 10^{-4}$ 
+    \\
+    Learning Rate Scheduler           & Cosine 
+    \\
+    
+    Warmup Ratio                 & 0.1                \\
+    Weight Decay rate                 & 0.03                \\
+    Optimizer                & \texttt{paged\_adamw\_8bit}  \\
+    \hline
+    \end{tabular}
+    \caption{Training Configuration for Qwen2.5-VL-3B AttAnchor Experiments}
+    \label{tab:cos_train_config_3b}
+    \end{table}
+
+
+
+\section{Qwen2.5-VL-3B Results: Lessons from a Misaligned VLM}
+
+\label{app:qwen_results}
+
+\begin{table}[H]
+\centering
+\caption{Performance Comparison: TinyLlava 1B vs QwenVL 3B across Different Methods}
+\small
+\begin{tabular}{@{}l|ccc|ccc@{}}
+\toprule
+& \multicolumn{3}{c|}{\textbf{TinyLlava 1B}} & \multicolumn{3}{c}{\textbf{QwenVL 3B}} \\
+\textbf{Performance} & \textbf{Baseline} & \textbf{AttAnchor} & \textbf{AttAnchor (Img)} & \textbf{Baseline} & \textbf{AttAnchor} & \textbf{AttAnchor (Img)} \\
+\midrule
+Loss (Negated) & -1.0716 & \textcolor{customgreen}{-1.0712} & -1.0728 & -1.2928 & -1.2924 & \textcolor{customgreen}{-1.2920} \\
+BLEU & 0.5663 & \textcolor{customgreen}{0.5680} & 0.5652 & 0.5738 & 0.5726 & \textcolor{customgreen}{0.5754} \\
+BERTScore & 0.9616 & \textcolor{customgreen}{0.9617} & 0.9614 & 0.9623 & \textcolor{customgreen}{0.9624} & 0.9624 \\
+METEOR & 0.6888 & \textcolor{customgreen}{0.6901} & 0.6893 & 0.6961 & 0.6964 & \textcolor{customgreen}{0.6967} \\
+CIDEr & 4.0793 & \textcolor{customgreen}{4.0860} & 4.0423 & 4.2122 & 4.1945 & \textcolor{customgreen}{4.2356} \\
+ROUGE-L & 0.7054 & \textcolor{customgreen}{0.7066} & 0.7050 & 0.7120 & 0.7126 & \textcolor{customgreen}{ 0.7130} \\
+
+VQAv2 & 69.11 & \textcolor{customgreen}{70.11} & 69.87 & \textcolor{customgreen}{ 78.93} & 78.42 & 78.65 \\
+
+SQA & \textcolor{customgreen}{54.94} & 54.92 & 54.66 & 67.79 & \textcolor{customgreen}{68.26} & 68.05 \\
+GQA & 54.24 & \textcolor{customgreen}{55.00} & 54.66 & \textcolor{customgreen}{56.42} & 55.87 & 55.84 \\
+VizWiz & \textcolor{customgreen}{42.36} & 31.54 & 38.04 & 58.73 & 58.32 & \textcolor{customgreen}{60.01} \\
+
+MMBench & 12.97 & 13.06 & \textcolor{customgreen}{16.41} & 75.94 & \textcolor{customgreen}{76.38} & 75.43 \\
+MME & 1392 & \textcolor{customgreen}{1452} & 1401 & 1978 & 2002 & \textcolor{customgreen}{2022} \\
+
+POPE & 75.06 & 84.83 & \textcolor{customgreen}{86.63} & 85.90 & \textcolor{customgreen}{86.60} & 85.83 \\
+Amber & 81.2 & \textcolor{customgreen}{81.8} & 79.9 & 87.8 & \textcolor{customgreen}{87.9} &  87.7 \\
+HallusionBench & 37.11 & \textcolor{customgreen}{40.21} & 36.58 & \textcolor{customgreen}{53.41} & 52.79 & 51.37 \\
+
+
+\bottomrule
+\end{tabular}
+\label{tab:qwenmodel_comparison}
+\end{table}
+
+The AttAnchor approach yields similar but smaller performance gain on Qwen-3B than other models, where QwenVL uses pooling to compress vision token representations, achieving improvements over the baseline in only 9/15 metrics, compared to 13/15 for TinyLLaVA-1B and 11/15 for LLaVA-7B. This reduced effectiveness results from QwenVL's internal pooling mechanism after its multimodal projector, which diminishes the granularity of image token embeddings, leading to significantly lower maximum cosine similarity scores and optimal Similarity Threshold (0.07--0.08) compared to 0.12--0.14 for TinyLLaVA and Llava on the same dataset, thus hindering reliable text-image matches for attention anchor insertion. This finding suggests that models with misaligned vision-language embeddings, like QwenVL, could potentially benefit  from first using pre-alignment techniques such as Supervised Embedding Alignment (SEA)~\cite{yin2024sea} to strengthen embedding correspondence before applying AttAnchor, offering a novel pathway to further enhance cross-modal alignment in the future.
+
+
+\section{Theoretical Analysis of AttAnchor}
+\label{app:theoretical_analysis}
+
+\subsection{Attention Score Improvement Analysis}
+
+The effectiveness of AttAnchor can be understood through the lens of attention score distributions in transformer architectures. In standard VLMs, the attention score between text token $T_i$ and image token $I_j$ is computed as:
+
+\begin{equation}
+A_{ij} = \frac{\exp(Q_i K_j^T / \sqrt{d})}{\sum_{k=1}^{M+N} \exp(Q_i K_k^T / \sqrt{d})}
+\end{equation}
+
+where $Q_i$ and $K_j$ are query and key vectors respectively, $d$ is the embedding dimension, and $M + N$ is the total sequence length. The positional encoding in RoPE introduces a bias term that penalizes distant tokens:
+
+\begin{equation}
+A_{ij} = \frac{\exp((Q_i K_j^T + P_{ij}) / \sqrt{d})}{\sum_{k=1}^{M+N} \exp((Q_i K_k^T + P_{ik}) / \sqrt{d})}
+\end{equation}
+
+where $P_{ij}$ represents the positional bias. For RoPE, this bias decreases with distance: $P_{ij} < P_{ik}$ when $|i - j| > |i - k|$ (assuming $P$ is negative for larger distances).
+
+\textbf{Theorem 1 (Attention Score Improvement):} Let $T_i$ be a text token and $I_j$ be its semantically most similar image token. If a copy of $T_i$ is inserted immediately after $I_j$ in the sequence, the attention score $A_{ij}$ increases by a factor of at least $\exp(\Delta P / \sqrt{d})$, where $\Delta P = P^{\text{attanchor}}_{ij} - P^{\text{original}}_{ij} > 0$.
+
+\textbf{Proof:} The original attention score is:
+
+$$A^{\text{original}}_{ij} = \frac{\exp((Q_i K_j^T + P^{\text{original}}_{ij}) / \sqrt{d})}{\sum_k \exp((Q_i K_k^T + P^{\text{original}}_{ik}) / \sqrt{d})}$$
+
+After AttAnchor insertion (adding a copy), the distance between the copied $T_i$ and $I_j$ decreases, so $P^{\text{attanchor}}_{ij} > P^{\text{original}}_{ij}$. The new attention score becomes:
+
+$$A^{\text{attanchor}}_{ij} = \frac{\exp((Q_i K_j^T + P^{\text{attanchor}}_{ij}) / \sqrt{d})}{\sum_k \exp((Q_i K_k^T + P^{\text{attanchor}}_{ik}) / \sqrt{d}) + \exp((Q_i K_{\text{copy}}^T + P^{\text{attanchor}}_{i,\text{copy}}) / \sqrt{d})}$$
+
+Let $S = \sum_k \exp((Q_i K_k^T + P^{\text{original}}_{ik}) / \sqrt{d})$ be the original denominator. The new denominator is $S' = S + \Delta S$, where $\Delta S$ includes the added copy term and minor shifts in $P_{ik}$ for other $k$ (due to sequence lengthening by 1).
+
+Since the copy has the same embedding as $T_i$, its contribution is bounded: $\exp((Q_i K_{\text{copy}}^T + P^{\text{attanchor}}_{i,\text{copy}}) / \sqrt{d}) \leq \max_k \exp((Q_i K_k^T + P^{\text{original}}_{ik}) / \sqrt{d})$. Assuming bounded keys ($|K| \leq B$) and large $M+N$ (typical in VLMs, e.g., 576+50=626), the relative change $|\Delta S / S| \leq 1/(M+N) \ll 1$.
+
+Thus, the ratio $r = A^{\text{attanchor}}_{ij} / A^{\text{original}}_{ij} = [\exp(\Delta P / \sqrt{d})] \cdot [S / S']$.
+
+Since $S' = S + \Delta S$ and $|\Delta S| \leq \epsilon S$ for small $\epsilon = O(1/(M+N))$, we have $1 / (1 + \epsilon) \leq S / S' \leq 1 / (1 - \epsilon)$, implying $r \geq \exp(\Delta P / \sqrt{d}) / (1 + \epsilon) \approx \exp(\Delta P / \sqrt{d}) (1 - \epsilon) > \exp(\Delta P / \sqrt{d}) - \delta$, where $\delta$ is negligible for large sequences.
+
+\subsection{Information-Theoretic Analysis}
+
+The cross-modal alignment problem can be framed as maximizing mutual information between text and image representations. Let $X = \{I_1, \dots, I_M\}$ be the image tokens and $Y = \{T_1, \dots, T_N\}$ be the text tokens.
+
+\textbf{Definition 1 (Cross-Modal Mutual Information):} The mutual information between image and text representations is:
+
+\begin{equation}
+I(X; Y) = H(X) - H(X|Y) = \sum_{i,j} p(x_i, y_j) \log \frac{p(x_i, y_j)}{p(x_i) p(y_j)}
+\end{equation}
+
+\textbf{Theorem 2 (Local Information Enhancement):} AttAnchor increases the local mutual information $I(X_{local}; Y_{anchor})$ while approximately preserving the global mutual information $I(X; Y)$, where $X_{local}$ represents image tokens near inserted text anchors.
+
+\textbf{Proof:} Consider the joint distribution $p(x_i, y_j)$ over embeddings. AttAnchor inserts copies $y_{anchor}$ near semantically similar $x_{local}$, where similarity is measured by cosine $> \tau$, implying higher $p(x_{local}, y_{anchor})$.
+
+The local MI is $I(X_{local}; Y_{anchor}) = \sum_{(i,j) \in local} p(x_i, y_j) \log \frac{p(x_i, y_j)}{p(x_i) p(y_j)}$.
+
+Pre-insertion: This sum is over distant pairs, where $p(x_i, y_j)$ is diluted by positional noise, reducing the log term.
+
+Post-insertion: Insertions create new local pairs with elevated $p(x_{local}, y_{anchor})$ due to reduced distance (higher attention, per Theorem 1), increasing the sum by $\Delta I > 0$.
+
+For global $I(X; Y)$: The insertion adds redundant $y_{anchor}$ (copies of existing $Y$), so the marginals $p(x_i)$ and $p(y_j)$ change minimally (by $O(1/N)$). The entropy $H(X)$ remains unchanged ($X$ unmodified), and $H(X|Y)$ decreases slightly due to better conditioning on anchors, but the net $\Delta I(X; Y) \approx 0$ since redundancy doesn't add new information. Formally, by data processing inequality, augmenting $Y$ with copies bounds $|\Delta I| \leq H(Y_{anchor}) \ll H(Y)$ for few insertions.
+
+\subsection{Optimal Threshold Selection}
+
+The threshold $\tau_{\text{align}}$ can be analyzed through the lens of precision-recall trade-offs in anchor selection.
+
+\textbf{Definition 3 (Anchor Selection Precision and Recall):} Let $S$ be the set of true semantic correspondences (truly related image-text pairs) and $\hat{S}(\tau)$ be the set of predicted correspondences based on cosine similarity $> \tau$. Define:
+
+\begin{align}
+\text{Precision}(\tau) &= \frac{|S \cap \hat{S}(\tau)|}{|\hat{S}(\tau)|} \\
+\text{Recall}(\tau) &= \frac{|S \cap \hat{S}(\tau)|}{|S|}
+\end{align}
+
+\textbf{Theorem 4 (Optimal Threshold):} The optimal threshold $\tau^*$ maximizes the F1-score:
+
+\begin{equation}
+\tau^* = \arg \max_\tau \frac{2 \cdot \text{Precision}(\tau) \cdot \text{Recall}(\tau)}{\text{Precision}(\tau) + \text{Recall}(\tau)}
+\end{equation}
+
+\textbf{Corollary 1:} For models with higher-quality embeddings (higher maximum cosine similarities), the optimal threshold $\tau^*$ is higher, explaining why different models require different thresholds.
+
+\textbf{Proof:} Let $f(c) = p_{\text{true}} f_{\text{true}}(c) + (1 - p_{\text{true}}) f_{\text{false}}(c)$, where $f(c)$ represents the overall probability density function of cosine similarities across all possible text-image token pairs, combining the contributions from true correspondences and false ones; $f_{\text{true}}(c)$ and $f_{\text{false}}(c)$ are probability density functions of cosine similarities for true and false correspondences respectively, modeled as normal distributions with $f_{\text{true}}(c) \sim N(\mu_{\text{true}}, \sigma^2)$, $f_{\text{false}}(c) \sim N(\mu_{\text{false}}, \sigma^2)$, and $\mu_{\text{true}} > \mu_{\text{false}}$, with $p_{\text{true}}$ as the prior probability of a true correspondence. Define Precision = $\frac{\int_\tau^1 p_{\text{true}} f_{\text{true}}(c) dc}{\int_\tau^1 f(c) dc}$ and Recall = $\frac{\int_\tau^1 f_{\text{true}}(c) dc}{\int_0^1 f_{\text{true}}(c) dc}$. As $\mu_{\text{true}}$ (reflecting the maximum similarity) rises, $f_{\text{true}}(c)$ shifts right, delaying the drop in Recall (since more true pairs remain above $\tau$) and reducing the overlap with $f_{\text{false}}(c)$ in the denominator of Precision, thus shifting the F1 peak (where $dF1/d\tau = 0$) to a higher $\tau^*$, as the optimal balance favors a higher threshold to maintain both high Precision and Recall.
+
+
+\subsection{Computational Complexity Analysis}
+
+\textbf{Theorem 5 (Complexity Bounds):} The computational complexity of AttAnchor is $O(N \cdot M \cdot d)$ for similarity computation and $O(N \cdot M)$ for token insertion, where $N$ is the number of text tokens, $M$ is the number of image tokens, and $d$ is the embedding dimension.
+
+\textbf{Proof:} Computing cosine similarity between all text-image pairs requires $N \cdot M$ dot products, each taking $O(d)$ time. Token insertion requires $O(N \cdot M)$ operations in the worst case. The total complexity is $O(N \cdot M \cdot d + N \cdot M) = O(N \cdot M \cdot d)$.
+
+\textbf{Corollary 2:} The additional computational overhead is \textbf{negligible} compared to the $O((M + N)^2 \cdot d)$ complexity of self-attention, especially when $N \ll M$ (typical in VLM scenarios).
+
+\subsection{Theoretical Limitations}
+
+\textbf{Theorem 6 (Failure Conditions):} AttAnchor fails to improve performance when:
+
+\begin{enumerate}
+\item The cosine similarity between text and image tokens is uniformly low (below threshold)
+\item The semantic similarity is not well-captured by cosine similarity in the embedding space
+\item The model’s attention mechanism is already well-calibrated for cross-modal alignment
+\end{enumerate}
+
+\textbf{Proof:} For (1): If $\max_{i,j} \cos(T_i, I_j) < \tau$, no insertions occur, so the sequence is unchanged and $\Delta A_{ij} = 0$ for all pairs.
+
+For (2): If cosine does not correlate with semantics (e.g., due to poor projector), insertions create misleading local pairs, increasing noise in attention (negative $\Delta I$ per Theorem 2) and degrading loss.
+
+For (3): If pre-insertion $A_{ij}$ already maximizes semantic alignment (e.g., via other mechanisms), added anchors introduce redundancy, potentially increasing sequence length without benefit, leading to minor overhead without gains.
+
+\section{Unsuccessful Attempts}
+\label{app:unsuccessful_attempts}
+
+In our pursuit of optimal cross-modal token alignment, we explored several alternative approaches that, while theoretically promising, proved unsuccessful in practice. We document these attempts here to provide valuable insights for future research and help others avoid similar pitfalls.
+
+\subsection{Learning Optimal Token Reordering with Gumbel Softmax}
+
+Our first unsuccessful attempt involved developing a learnable token reordering mechanism using the Gumbel Softmax algorithm~\citep{jang2016categorical, mena2018learning} to learn optimal permutation matrices for cross-modal token alignment. The approach aimed to train a transformer-based reordering module that could dynamically rearrange tokens based on learned attention patterns.
+
+\textbf{Methodology:} We designed a neural network that takes the concatenated image and text token embeddings as input and outputs a soft permutation matrix $P \in \mathbb{R}^{(M+N) \times (M+N)}$, where $M$ and $N$ are the number of image and text tokens respectively. The Gumbel Softmax was used to approximate discrete permutations during training, allowing gradient-based optimization of the reordering strategy.
+
+\textbf{Challenges and Failures:} Despite the theoretical appeal of learning optimal reordering strategies, this approach faced several critical limitations:
+
+\begin{itemize}
+\item \textbf{Computational Complexity:} The permutation matrix scales quadratically with sequence length ($O((M+N)^2)$), making it computationally prohibitive for typical VLM sequences of 600+ tokens. The memory requirements for storing and computing gradients through such large matrices exceeded available GPU memory.
+
+\item \textbf{Training Instability:} The Gumbel Softmax approximation, while differentiable, introduced significant training instability. The temperature parameter required careful annealing schedules, and the discrete nature of permutations made convergence extremely sensitive to hyperparameter choices.
+
+\item \textbf{Local Optima:} The optimization landscape for learning permutation matrices proved highly non-convex, with numerous local optima that prevented the model from discovering meaningful reordering patterns. The learned permutations often collapsed to trivial solutions or failed to capture semantic relationships.
+
+\end{itemize}
+
+These challenges led us to abandon this approach in favor of the simpler, more robust cosine similarity-based method that forms the core of AttAnchor.
+
+\subsection{Modality-Aware RoPE Positional Encoding}
+
+Our second unsuccessful attempt focused on developing a novel modality-aware variant of RoPE (Rotary Position Embedding)~\citep{su2024roformer} that would explicitly account for the different nature of image and text tokens in the positional encoding scheme.
+
+\textbf{Methodology:} We designed a dual-indexing RoPE system where each token receives two positional indices: (1) a \textit{local position index} representing its position within its modality (e.g., position within an image sequence or within a text sentence), and (2) a \textit{cross-modal position index} representing its position across modalities (e.g., whether it belongs to the first input modality, second input modality, etc.). When computing attention between tokens from different modalities, we used the cross-modal position indices to reduce the effective distance penalty, thereby encouraging stronger cross-modal attention while preserving intra-modal positional relationships.
+
+\textbf{Challenges and Failures:} This approach encountered a fundamental limitation that highlights the importance of preserving pretrained knowledge:
+
+\begin{itemize}
+\item \textbf{Catastrophic Forgetting:} Even modifying the positional encoding of just the first layer of the LLM backbone led to significant performance degradation. The pretrained language model had learned strong positional priors from its training data, and altering these encodings disrupted the carefully learned representations, causing catastrophic forgetting of the model's linguistic capabilities.
+
+\item \textbf{Training Instability:} The modified positional encodings created training instabilities, with loss curves showing erratic behavior and frequent divergence. The model struggled to adapt to the new encoding scheme while maintaining its language understanding capabilities.
+
+\item \textbf{Architectural Constraints:} The approach required significant modifications to the transformer architecture, making it incompatible with existing pretrained models and requiring full retraining from scratch, which is computationally prohibitive for large-scale VLMs.
+\end{itemize}
+
+This experience reinforced our understanding that any successful approach must work within the constraints of existing pretrained models, leading us to develop AttAnchor as a parameter-free, plug-and-play solution that preserves the original model architecture.
+
+\subsection{Lessons Learned}
+
+These unsuccessful attempts provided valuable insights that shaped our final approach:
+
+\begin{enumerate}
+\item \textbf{Simplicity over Complexity:} Complex learnable mechanisms often introduce more problems than they solve, especially when dealing with long sequences and pretrained models. Simple, rule-based approaches like cosine similarity can be more robust and effective.
+
+\item \textbf{Preserve Pretrained Knowledge:} Any modification to core model components (like positional encodings) risks catastrophic forgetting. Successful approaches should work with existing architectures rather than against them.
+
+\item \textbf{Computational Efficiency Matters:} Methods that scale poorly with sequence length are impractical for real-world VLM applications. The quadratic complexity of permutation matrices made our first approach infeasible.
+
+\item \textbf{Generalization is Key:} Approaches that work well on small examples but fail to generalize are of limited practical value. AttAnchor's rule-based approach provides consistent improvements across diverse scenarios.
+\end{enumerate}
+
+These lessons ultimately led us to develop AttAnchor as a simple, efficient, and effective solution that addresses the core problem of cross-modal token alignment without the pitfalls encountered in these alternative approaches.
+
+\section{LLM Usage}
+\label{app:llm_usage}
+
+\textbf{Yes, to aid or polish writing.} Large language models were used to assist with writing and polishing various sections of this paper, including correcting typos and grammar errors, improving clarity, coherence, and academic tone across the abstract, introduction, related work, and conclusion sections. The models helped refine the presentation while ensuring all technical content remained accurate and faithful to the original research findings. All substantive technical contributions, experimental results, and methodological details were conceived and developed by the human authors.
+
+\textbf{Yes, for retrieval and discovery (e.g., finding related work).} LLMs were employed to help identify and discover relevant related work in the field of vision-language models, cross-modal alignment, and attention mechanisms. The models assisted in finding recent papers and understanding connections between different research directions, which informed our literature review and positioning of our work within the broader research landscape. However, all final decisions about which papers to include and how to position our work were made by the human authors based on their domain expertise.
+
+\end{document}
+
