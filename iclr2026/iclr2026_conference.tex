@@ -1,5 +1,6 @@
-\documentclass{article} % For LaTeX2e
-\usepackage{iclr2026_conference,times}
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
 
 % Optional math commands from https://github.com/goodfeli/dlbook_notation.
 \input{math_commands.tex}
@@ -29,11 +30,12 @@
 
 \title{AttAnchor: Guiding Cross-Modal Token Alignment in VLMs with Attention Anchors}
 
-% Authors must not appear in the submitted version. They should be hidden
-% as long as the \iclrfinalcopy macro remains commented out below.
-% Non-anonymous submissions will be rejected without review.
+% Authors and affiliations for arXiv submission
 
-\author{Anonymous Authors}
+\author{Your Name\\
+Your Institution\\
+\href{mailto:your.email@institution.edu}{your.email@institution.edu}
+}
 
 % The \author macro works with any number of authors. There are two commands
 % used to separate the names and addresses of multiple authors: \And and \AND.
@@ -46,7 +48,7 @@
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
 
-%\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+% arXiv submission - no special formatting needed
 \begin{document}
 
 % Force captions to bottom
